@@ -1,0 +1,132 @@
+// shared.js — dùng chung cho index.html và admin.html
+// Store layer: localStorage với fallback in-memory. Thay bằng fetch() nếu có backend.
+
+(function (global) {
+  'use strict';
+
+  const STORAGE_KEY = 'beo_products_v1';
+  const TELEGRAM_URL_KEY = 'beo_telegram_url';
+
+  const DEFAULT_TELEGRAM = 'https://t.me/muadong_paris';
+
+  const SEED = {
+    mizze: {
+      title: 'Mizze IOS Safe',
+      image: 'https://raw.githubusercontent.com/MinhBeoStore/BEO-MOD-Z/main/IMG_0831.jpeg',
+      packages: [
+        { name: 'Day',   price: '20.000đ'  },
+        { name: 'Week',  price: '75.000đ'  },
+        { name: 'Month', price: '160.000đ' },
+      ],
+    },
+    migul: {
+      title: 'IPA Migul Pro',
+      image: 'https://raw.githubusercontent.com/MinhBeoStore/BEO-MOD-Z/main/IMG_0831.jpeg',
+      packages: [
+        { name: 'Day',   price: '60.000đ'  },
+        { name: 'Week',  price: '150.000đ' },
+        { name: 'Month', price: '250.000đ' },
+      ],
+    },
+    tipa: {
+      title: 'TIPA SUDO',
+      image: 'https://raw.githubusercontent.com/MinhBeoStore/BEO-MOD-Z/main/IMG_0831.jpeg',
+      packages: [{ name: 'Month', price: '170.000đ' }],
+    },
+    fl0rk: {
+      title: 'Fl0rk IPA',
+      image: 'https://raw.githubusercontent.com/MinhBeoStore/BEO-MOD-Z/main/IMG_0831.jpeg',
+      packages: [{ name: 'Month', price: '200.000đ' }],
+      note: 'FFTH & MAX',
+    },
+  };
+
+  function safeParse(raw) {
+    try { return JSON.parse(raw); } catch { return null; }
+  }
+
+  function loadProducts() {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    const parsed = safeParse(raw);
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(SEED));
+      return structuredClone(SEED);
+    }
+    return parsed;
+  }
+
+  function saveProducts(obj) {
+    if (!obj || typeof obj !== 'object' || Array.isArray(obj)) {
+      throw new Error('saveProducts: payload must be a plain object');
+    }
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(obj));
+    return obj;
+  }
+
+  function loadTelegram() {
+    return localStorage.getItem(TELEGRAM_URL_KEY) || DEFAULT_TELEGRAM;
+  }
+
+  function saveTelegram(url) {
+    localStorage.setItem(TELEGRAM_URL_KEY, String(url || DEFAULT_TELEGRAM));
+  }
+
+  // slug an toàn: không dấu, không space, không ký tự lạ
+  function slugify(input) {
+    return String(input)
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .replace(/đ/g, 'd').replace(/Đ/g, 'D')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 60) || 'product-' + Date.now();
+  }
+
+  // render card vào #productGrid của index.html
+  function renderProductGrid(container, products, onOpen) {
+    if (!container) return;
+    container.innerHTML = '';
+
+    Object.entries(products).forEach(([key, p]) => {
+      const card = document.createElement('div');
+      card.className = 'glass-card p-5 flex items-center justify-between cursor-pointer';
+      card.dataset.productKey = key;
+      card.innerHTML = `
+        <div class="flex items-center gap-4 min-w-0">
+          <img src="${escapeAttr(p.image || '')}" alt="${escapeAttr(p.title || '')}" class="product-thumb">
+          <div class="min-w-0">
+            <p class="font-black text-slate-700 break-words">${escapeHtml(p.title || '')}</p>
+            <p class="text-[11px] text-blue-500 font-bold break-words">Xem bảng giá →</p>
+          </div>
+        </div>
+        <div class="btn-action flex-shrink-0">
+          <i class="fa-solid fa-chevron-right"></i>
+        </div>
+      `;
+      card.addEventListener('click', () => onOpen(key, p));
+      container.appendChild(card);
+    });
+  }
+
+  // escape nhỏ — không cần thư viện
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, (c) => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    }[c]));
+  }
+  function escapeAttr(s) { return escapeHtml(s); }
+
+  global.BeoStore = {
+    STORAGE_KEY,
+    TELEGRAM_URL_KEY,
+    DEFAULT_TELEGRAM,
+    loadProducts,
+    saveProducts,
+    loadTelegram,
+    saveTelegram,
+    slugify,
+    renderProductGrid,
+    escapeHtml,
+  };
+})(window);
